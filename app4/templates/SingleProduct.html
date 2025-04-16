@@ -1,0 +1,12 @@
+
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block content %}
+    <h1>{{ cafe_item.name }}</h1>
+    <p>Price: {{ cafe_item.price }}</p>
+    <p>{{ cafe_item.description }}</p>
+    <div id = "basket_form">
+        {{wtf.quick_form(basket)}}
+    </div>
+{% endblock %}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Cafe Extra</h1>
+    <ul>
+        {% for item in cafe_menu %}
+            <h3>{{ item.name }} </h3>
+            <p>Price: {{ item.price }}</p>
+            <p>{{ item.description }}</p>
+            <a href = "{{url_for('singleProductPage', item = loop.index0)}}">
+                <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}"> 
+            </a>
+        {% endfor %}
+    </ul>
+</body>
+</html>

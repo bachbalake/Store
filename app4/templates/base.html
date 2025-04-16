@@ -1,0 +1,22 @@
+<!-- Write a base template for each page on the website, for example a navigation menu -->
+{% block doc -%} 
+   {%- block html %} 
+      {%- block head %} 
+         {%- block metas %} 
+         {%- endblock metas %} 
+         {%- block styles %} 
+         {%- endblock styles %} 
+      {%- endblock head %} 
+      {% block body -%} 
+         {% block navbar %}
+         <nav>
+            <a href = "{{url_for('galleryPage')}}">Home</a>
+         </nav>
+         {%- endblock navbar %} 
+         {% block content -%} 
+         {%- endblock content %} 
+         {% block scripts %} 
+         {%- endblock scripts %} 
+      {%- endblock body %} 
+   {%- endblock html %} 
+{% endblock doc -%}
