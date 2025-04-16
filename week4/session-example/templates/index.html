@@ -1,0 +1,16 @@
+{% extends "bootstrap/base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Session Example{% endblock %}
+
+{% block content %}
+<div class="col-md-3">
+<ul>
+    <h3>Comments</h3>
+    {% for comment in comments %}
+        <li>{{comment}}</li>
+    {% endfor %}
+</ul>
+{{ wtf.quick_form(form) }}
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@
             <h3>{{ item.name }} </h3>
             <p>Price: {{ item.price }}</p>
             <p>{{ item.description }}</p>
-            <a href = "{{url_for('singleProductPage', item = loop.index0)}}">
+            <a href = "{{url_for('singleProductPage', item = loop.index)}}">
                 <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}"> 
             </a>
         {% endfor %}
