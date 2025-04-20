@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Basket</h1>
+   <ul>
+      {% for entry in user_basket %}
+      <li>
+         <h3>{{entry.item.name}}</h3>
+         <p>{{entry.item.price}}</p>
+         <p>{{entry.item_quantity}}</p>
+         <p>{{entry.total_price}}</p>
+      </li>
+      {% endfor %}
+   </ul>
+{% endblock %}
+
+   

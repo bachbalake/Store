@@ -1,6 +1,10 @@
 {% extends "base.html" %}
-<!DOCTYPE html>
-<body>
-   <h1> {{ cafe_item.name }}</h1>
-   <p> {{ basket }} </p>
-</body>
+
+{% block content %}
+   <h1> {{ item.name }}</h1>
+   <h3>Items Added: </h3>
+   <p> {{ quantity_added }} </p>
+   <h3>Total Items: </h3>
+   <p> {{ basket_entry.item_quantity }} </p>
+{% endblock %}
+

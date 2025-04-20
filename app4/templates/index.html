@@ -1,16 +1,18 @@
-<!DOCTYPE html>
-<html>
-<body>
+{% extends "base.html" %}
+
+{% block content %}
     <h1>Cafe Extra</h1>
     <ul>
         {% for item in cafe_menu %}
-            <h3>{{ item.name }} </h3>
-            <p>Price: {{ item.price }}</p>
-            <p>{{ item.description }}</p>
             <a href = "{{url_for('singleProductPage', item = loop.index)}}">
-                <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}"> 
+                <h3>{{ item.name }} </h3>
             </a>
+            <p>Price: {{ item.price }}</p>
+            <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images"> 
+            {% set recipe_for_item = (cafe_recipes | selectattr('item_id', 'equalto', item.id) | list).0 %}
+            {% if recipe_for_item %}
+                <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
+            {% endif %}
         {% endfor %}
     </ul>
-</body>
-</html>
+{% endblock %}
