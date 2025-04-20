@@ -8,11 +8,74 @@
                 <h3>{{ item.name }} </h3>
             </a>
             <p>Price: {{ item.price }}</p>
-            <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images"> 
+            <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images" data-image_item_id = "{{ item.id }}" draggable="true"> 
             {% set recipe_for_item = (cafe_recipes | selectattr('item_id', 'equalto', item.id) | list).0 %}
             {% if recipe_for_item %}
                 <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
             {% endif %}
         {% endfor %}
     </ul>
+    <div id = 'basket_drop_area' style = "border: 2px; background-color: bisque;" padding = 10px>
+        <h2>Basket</h2>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const images = document.querySelectorAll('.cafe_menu_images');
+            const basket_drop = document.getElementById('basket_drop_area');
+
+            images.forEach(img => {
+                img.addEventListener('dragstart', (event) => {
+                    event.dataTransfer.setData('text/plain', img.dataset.image_item_id);
+                });
+            });
+
+            basket_drop.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                //basket_drop.style.backgroundColor = '#eef';
+            });
+
+            /*
+            basket_drop.addEventListener('dragleave', (event) => {
+                basket_drop.style.backgroundColor = '#eef';
+            });
+            */
+           basket_drop.addEventListener('drop', async (event) =>{
+            event.preventDefault();
+            //basket_drop.style.backgroundColor = '';
+            const dropped_item_id = event.dataTransfer.getData('text/plain');
+
+            const response = await fetch('/add_to_basket', {
+                method: 'POST', 
+                headers: {
+                    'Content-type' : 'application/json',
+                    'X-CSRFToken' : '{{ csrf_token }}'
+                },
+                body: JSON.stringify({item_id : dropped_item_id, quantity: 1})
+            });
+
+            if(response.ok){
+                alert('Item added to basket');
+            }
+            else{
+                alert('Unable to add item to basket');
+            }
+           });
+        });
+    </script>
 {% endblock %}
+
+
+
+
+ <!-- Display the description of the image when hovered over 
+      <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const images = document.querySelectorAll('.cafe_menu_images');
+            images.forEach (img =>{
+                img.addEventListener('mouseover', () =>{
+                const item_name = img.dataset.name;
+                });
+            });
+        });
+    </script>
+     -->

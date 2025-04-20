@@ -5,8 +5,11 @@ from wtforms.validators import NumberRange, DataRequired
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy 
 from sqlalchemy.ext.hybrid import hybrid_property
+from flask import request, jsonify
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 bootstrap = Bootstrap(app)
 app.config['SECRET_KEY'] = "ben should eat glass for dinner"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.sqlite3'
@@ -32,7 +35,7 @@ class basket(db.Model):
 
     @hybrid_property
     def total_price(self):
-        return self.item_quanity * self.item.price
+        return self.item_quantity * self.item.price
 # Want to create a login page, or a sign up page
 # Each user has a unique id, name, password and basket_id
 # Options to view the user account at all times, reset password?, delete account, try emailing for code?
@@ -91,7 +94,8 @@ class Basket_form(FlaskForm):
 def galleryPage():
     cafe_menu = open_cafe.query.all()
     cafe_recipes = recipe.query.all()
-    return render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes)
+    csrf_token = generate_csrf()
+    return render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token)
 
 
 @app.route('/product_page/<int:item>', methods = ['GET', 'POST'])
@@ -118,6 +122,23 @@ def singleProductPage(item):
 def basketPage():
     user_basket = basket.query.all()
     return render_template('ViewBasket.html', user_basket = user_basket)
+
+@app.route('/add_to_basket', methods = ['POST'])
+def add_to_basket():
+    data = request.get_json()
+    item_id = data.get('item_id')
+    print(item_id)
+    quantity = data.get('quantity')
+
+    item_entry = basket.query.filter_by(item_id = item_id).first()
+
+    if item_entry:
+        item_entry.item_quantity += quantity
+    else:
+        item_entry = basket(item_id = item_id, item_quantity = quantity)
+        db.session.add(item_entry)
+    db.session.commit()
+    return jsonify({"success": True})
 
 
 if __name__ == '__main__':
