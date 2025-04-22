@@ -61,7 +61,6 @@
            basket_drop.addEventListener('drop', async () =>{
             //basket_drop.style.backgroundColor = '';
             const dropped_item_id = event.dataTransfer.getData('text/plain');
-
             const response = await fetch('/add_to_basket', {
                 method: 'POST', 
                 headers: {

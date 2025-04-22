@@ -35,7 +35,7 @@ class basket(db.Model):
 
     @hybrid_property
     def total_price(self):
-        return self.item_quantity * self.item.price
+        return round(self.item_quantity * self.item.price, 2)
 # Want to create a login page, or a sign up page
 # Each user has a unique id, name, password and basket_id
 # Options to view the user account at all times, reset password?, delete account, try emailing for code?
@@ -110,8 +110,10 @@ def singleProductPage(item):
         if item_entry:
             item_entry.item_quantity += quantity
         else:
-            item_entry = basket(item_id = selected_item.id, item_quantity = quantity)
-            db.session.add(item_entry)
+            if(quantity > 0):
+                item_entry = basket(item_id = selected_item.id, item_quantity = quantity)
+                db.session.add(item_entry)
+            
         db.session.commit()
         return render_template('PurchaseProduct.html', item=selected_item, quantity_added = quantity, basket_entry=item_entry) 
     else: 
@@ -121,7 +123,9 @@ def singleProductPage(item):
 @app.route('/basket')
 def basketPage():
     user_basket = basket.query.all()
-    return render_template('ViewBasket.html', user_basket = user_basket)
+    csrf_token = generate_csrf()
+
+    return render_template('ViewBasket.html', user_basket = user_basket, csrf_token = csrf_token)
 
 @app.route('/add_to_basket', methods = ['POST'])
 def add_to_basket():
@@ -130,14 +134,15 @@ def add_to_basket():
     quantity = data.get('quantity')
 
     item_entry = basket.query.filter_by(item_id = item_id).first()
-
     if item_entry:
-        item_entry.item_quantity += quantity
+        if item_entry.item_quantity + quantity >= 0:
+            item_entry.item_quantity += quantity
     else:
-        item_entry = basket(item_id = item_id, item_quantity = quantity)
-        db.session.add(item_entry)
+        if quantity > 0:
+            item_entry = basket(item_id = item_id, item_quantity = quantity)
+            db.session.add(item_entry)
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "item_quantity" : item_entry.item_quantity, "item_total_cost" : item_entry.total_price})
 
 @app.route('/get_item_description', methods = ['POST'])
 def get_item_description():
@@ -150,11 +155,21 @@ def get_item_description():
     else:
         return jsonify({"error" : "Item not found"}), 404
     
+@app.route('/clear_basket', methods = ['POST'])
+def clear_basket():
+    try: 
+        #basket.query.filter_by(user_id=current_user.id).delete()
+        basket.query.delete()
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error clearing basket {e}")
+        return jsonify({'success': False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-
+# Clear up jsonify messages. Set success as False, return the error as e. Also add more try methods, add error handling
 """
 Allows for calculation of total price in SQL
 @total_price.expression
@@ -168,3 +183,4 @@ def total_price(cls):
    <h3>Items Added: </h3>
    <p> {{ basket_entry.item_quantity }} </p>
 </body>"""
+

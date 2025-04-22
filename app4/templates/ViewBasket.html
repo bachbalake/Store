@@ -4,13 +4,75 @@
 <h1>Basket</h1>
    <ul>
       {% for entry in user_basket %}
-      <li>
+      <li class = "user_item_list" data-id = "{{ entry.item_id}}">
          <h3>Item Name: {{entry.item.name}}</h3>
          <p>Price: {{entry.item.price}}</p>
-         <p>Quanity: {{entry.item_quantity}}</p>
-         <p>Total cost: {{entry.total_price}}</p>
+         <p>
+            Quantity:
+            <button class="decrease_quantity" data-item_id="{{ entry.item_id }}">−</button>
+            <span class="item_quantity" id = 'quantity_container_{{ entry.item_id }}'>{{ entry.item_quantity }}</span>
+            <button class="increase_quantity" data-item_id="{{ entry.item_id }}">+</button>
+        </p>
+         <p id="total_price_container_{{ entry.item_id }}">Total cost: {{entry.total_price}}</p>
       </li>
       {% endfor %}
+      <button id="remove_all_items_btn">Remove all items</button>
    </ul>
+
+
+   <script>
+      document.addEventListener('DOMContentLoaded', function () {
+
+         document.querySelectorAll('.decrease_quantity').forEach(button => {
+            button.addEventListener('click', () => update_quantity(button.dataset.item_id, -1));
+         });
+
+         document.querySelectorAll('.increase_quantity').forEach(button => {
+            button.addEventListener('click', () => update_quantity(button.dataset.item_id, 1));
+         });
+
+         async function update_quantity(item_id, amount){
+            const response = await fetch('/add_to_basket', {
+               method: 'POST', 
+               headers: {
+                  'Content-Type' : 'application/json', 
+                  'X-CSRFToken' : '{{ csrf_token }}'
+               },
+               body: JSON.stringify({item_id : item_id, quantity: amount})
+            });
+            if(response.ok){
+               const data = await response.json();
+               const quantity_container = document.getElementById(`quantity_container_${item_id}`);
+               const total_price_container = document.getElementById(`total_price_container_${item_id}`);
+               quantity_container.textContent = data.item_quantity;
+               total_price_container.textContent = `Total cost: ${data.item_total_cost}`;
+            }
+            else{
+               console.log ('Could not update quantity');
+            }
+         }
+
+         document.getElementById('remove_all_items_btn').addEventListener('click', async () => {
+            const confirmation = confirm("Are you sure you want to remove all items?");
+            if (confirmation){
+               const response = await fetch('/clear_basket', {
+                  method: 'POST', 
+                  headers: {
+                     'Content-Type': 'application/json', 
+                     "X-CSRFToken" : '{{ csrf_token }}'
+                  }, 
+               });
+               if(response.ok){
+                  alert('All items were removed');
+                  location.reload();
+               }
+               else{
+                  console.log('Unable to clear all the content');
+               }
+            }
+
+         });
+      });
+   </script>
 {% endblock %}
 
