@@ -27,6 +27,7 @@
                 {% if recipe_for_item %}
                     <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
                 {% endif %}
+                <p id = "description_container"></p>
             </li>
         {% endfor %}
     </ul>
@@ -37,9 +38,10 @@
         document.addEventListener('DOMContentLoaded', function () {
 
             /* BASKET DRAG AND DROP */
+
             const images = document.querySelectorAll('.cafe_menu_images');
             const basket_drop = document.getElementById('basket_drop_area');
-
+        
             images.forEach(img => {
                 img.addEventListener('dragstart', (event) => {
                     event.dataTransfer.setData('text/plain', img.dataset.image_item_id);
@@ -56,8 +58,7 @@
                 basket_drop.style.backgroundColor = '#eef';
             });
             */
-           basket_drop.addEventListener('drop', async (event) =>{
-            event.preventDefault();
+           basket_drop.addEventListener('drop', async () =>{
             //basket_drop.style.backgroundColor = '';
             const dropped_item_id = event.dataTransfer.getData('text/plain');
 
@@ -78,54 +79,37 @@
             }
            });
 
+
+           /* ------------------------------------------------------------------------------------------- */
+
            /* SORTING */
            
            const sorting_methods = document.querySelectorAll('.dropdown_item');
 
            sorting_methods.forEach(sort_method  =>{
             sort_method.addEventListener('click', (event) =>{
-                const selected_sort_method = sort_method.dataset.sort;
-                switch(selected_sort_method){
-                    case 'alpha_asc':
-                        sort_menu('alpha', 'asc')
-                        break;
-                    case 'alpha_desc':
-                        sort_menu('alpha', 'desc')
-                        break;
-                    case 'price_asc':
-                        sort_menu('price', 'asc')
-                        break;
-                    case 'price_desc':
-                        sort_menu('price', 'desc')
-                        break;
-                    case 'carbon_asc':
-                        sort_menu('carbon', 'asc')
-                        break;
-                    case 'carbon_desc':
-                        sort_menu('carbon', 'desc')
-                        break;
-                }
+                const [sorting_method, order_method] = sort_method.dataset.sort.split('_');
+                sort_menu(sorting_method, order_method);
             });
            });
 
-
            /* FUNCTIONS */
 
-           function sort_menu(sort_method, order_method){
+           function sort_menu(sorting_method, order_method){
             //I want to retreive all the names of the cafe_menu_items here and sort them in alphabetical  order
             const items_list = Array.from(document.querySelectorAll('#menu_list .menu_item'));
             const sorted_items_list = items_list.sort((a, b) =>{
                 let a_val, b_val;
 
-                if (sort_method == 'alpha'){
+                if (sorting_method == 'alpha'){
                     a_val = a.dataset.name.toLowerCase();
                     b_val = b.dataset.name.toLowerCase();
                 }
-                else if (sort_method == 'price'){
+                else if (sorting_method == 'price'){
                     a_val = parseFloat(a.dataset.price);
                     b_val = parseFloat(b.dataset.price);
                 }
-                else if (sort_method == 'carbon'){
+                else if (sorting_method == 'carbon'){
                     a_val = parseFloat(a.dataset.carbon_footprint);
                     b_val = parseFloat(b.dataset.carbon_footprint);
                 }
@@ -146,50 +130,74 @@
             });
             sorted_items_list.forEach(item => menu_list.appendChild(item)); 
             }
-            function sort_menu_alphabetical(items_list){
-            const sorted_items_list = items_list.sort((a, b) => {
-                const a_name = a.dataset.name.toLowerCase();
-                const b_name = b.dataset.name.toLowerCase();
-                return a_name.localeCompare(b_name)
-            });
-            sorted_items_list.forEach(item => menu_list.appendChild(item)); 
-           }
 
-           function sort_menu_price_asc(items_list){
-            const sorted_items_list = items_list.sort((a, b) => {
-                const a_price = parseFloat(a.dataset.price);
-                const b_price = parseFloat(b.dataset.price);
-                return a_price - b_price;
-            });
-            sorted_items_list.forEach(item => menu_list.appendChild(item));
-           }
 
-           function sort_menu_price_desc(items_list){
-            const sorted_items_list = items_list.sort((a, b) => {
-                const a_price = parseFloat(a.dataset.price);
-                const b_price = parseFloat(b.dataset.price);
-                return b_price - a_price;
-            });
-            sorted_items_list.forEach(item => menu_list.appendChild(item));
-           }
-           function sort_menu_carbon_asc(items_list){
-            const sorted_items_list = items_list.sort((a, b) => {
-                const a_carbon = parseFloat(a.dataset.carbon_footprint);
-                const b_carbon = parseFloat(b.dataset.carbon_footprint);
-                return a_carbon - b_carbon;
-            });
-            sorted_items_list.forEach(item => menu_list.appendChild(item));
-           }
+           /* ------------------------------------------------------------------------------------------- */
 
-           function sort_menu_carbon_desc(items_list){
-            const sorted_items_list = items_list.sort((a, b) => {
-                const a_carbon = parseFloat(a.dataset.carbon_footprint);
-                const b_carbon = parseFloat(b.dataset.carbon_footprint);
-                return b_carbon - a_carbon;
-            });
-            sorted_items_list.forEach(item => menu_list.appendChild(item));
-           }
 
+           /* DISPLAY DESCRIPTION WHEN HOVER */
+
+            images.forEach (img =>{
+                let description_container = null;
+                let active_image = null;
+                let fetch_controller = null;
+                img.addEventListener('mouseover', async () =>{
+                //let description_container = document.getElementById('description_container');
+                const item_id = img.dataset.image_item_id;
+                console.log("Hover over: ", item_id);
+
+                if(fetch_controller){
+                    fetch_controller.abort();
+                }
+
+                if (active_image){
+                    active_image.remove();
+                    active_image = null;
+                }
+
+                active_image = img;
+                fetch_controller = new AbortController();
+                try{
+                    const response = await fetch('/get_item_description', {
+                    method: 'POST',
+                    headers: {
+                        'Content-type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({item_id: item_id}), 
+                    signal: fetch_controller.signal
+                    });
+
+                    data = await response.json();
+                    if (response.ok && active_image == img){
+                        console.log("The description: ", data.description);
+                        description_container = document.createElement('div');
+                        description_container.classList.add('item_description');
+                        description_container.innerText = data.description;
+
+                        img.parentElement.appendChild(description_container);
+                    }
+                }
+                catch(error){
+                    if (error.name !== 'AbortError') {
+                        console.log("Fetch error:", error);
+                    }
+                }
+                });
+
+                img.addEventListener('mouseout', () => {
+                    //let description_container = document.getElementById('description_container');
+                    if(description_container){
+                        description_container.remove();
+                        description_container = null;
+                    }
+                    active_image = null;
+                    if(fetch_controller){
+                        fetch_controller.abort();
+                        fetch_controller = null;
+                    }
+                });
+            });
         });
 
 

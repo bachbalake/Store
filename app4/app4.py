@@ -127,7 +127,6 @@ def basketPage():
 def add_to_basket():
     data = request.get_json()
     item_id = data.get('item_id')
-    print(item_id)
     quantity = data.get('quantity')
 
     item_entry = basket.query.filter_by(item_id = item_id).first()
@@ -140,6 +139,17 @@ def add_to_basket():
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route('/get_item_description', methods = ['POST'])
+def get_item_description():
+    data = request.get_json()
+    item_id = data.get('item_id')
+    item_entry = open_cafe.query.filter_by(id = item_id).first()
+
+    if item_entry:
+        return jsonify({"description" : item_entry.description})
+    else:
+        return jsonify({"error" : "Item not found"}), 404
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
