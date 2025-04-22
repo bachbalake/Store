@@ -1,18 +1,33 @@
 {% extends "base.html" %}
 
 {% block content %}
+    <div class="sort_menu">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="sort_menu_button" data-bs-toggle="dropdown" aria-expanded="false">
+            Sort Options
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <li><a class="dropdown_item" data-sort = "alpha_asc">Ascending Alphabetical</a></li>
+            <li><a class="dropdown_item" data-sort = "alpha_desc">Descending Alphabetical</a></li>
+            <li><a class="dropdown_item" data-sort = "price_asc">Ascending Price</a></li>
+            <li><a class="dropdown_item" data-sort = "price_desc">Descending Price</a></li>
+            <li><a class="dropdown_item" data-sort = "carbon_asc">Ascending Carbon Footprint</a></li>
+            <li><a class="dropdown_item" data-sort = "carbon_desc">Descending Carbon Footprint </a></li>
+        </ul>
+    </div>
     <h1>Cafe Extra</h1>
-    <ul>
+    <ul id = "menu_list">
         {% for item in cafe_menu %}
-            <a href = "{{url_for('singleProductPage', item = loop.index)}}">
-                <h3>{{ item.name }} </h3>
-            </a>
-            <p>Price: {{ item.price }}</p>
-            <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images" data-image_item_id = "{{ item.id }}" draggable="true"> 
-            {% set recipe_for_item = (cafe_recipes | selectattr('item_id', 'equalto', item.id) | list).0 %}
-            {% if recipe_for_item %}
-                <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
-            {% endif %}
+        {% set recipe_for_item = (cafe_recipes | selectattr('item_id', 'equalto', item.id) | list).0 %}
+        <li class = "menu_item" data-name = "{{ item.name }}" data-price = "{{ item.price }}" data-carbon_footprint = "{{ recipe_for_item.total_carbon_footprint if recipe_for_item}}">
+                <a href = "{{url_for('singleProductPage', item = loop.index)}}">
+                    <h3>{{ item.name }} </h3>
+                </a>
+                <p>Price: {{ item.price }}</p>
+                <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images" data-image_item_id = "{{ item.id }}" draggable="true"> 
+                {% if recipe_for_item %}
+                    <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
+                {% endif %}
+            </li>
         {% endfor %}
     </ul>
     <div id = 'basket_drop_area' style = "border: 2px; background-color: bisque;" padding = 10px>
@@ -20,6 +35,8 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+
+            /* BASKET DRAG AND DROP */
             const images = document.querySelectorAll('.cafe_menu_images');
             const basket_drop = document.getElementById('basket_drop_area');
 
@@ -60,7 +77,122 @@
                 alert('Unable to add item to basket');
             }
            });
+
+           /* SORTING */
+           
+           const sorting_methods = document.querySelectorAll('.dropdown_item');
+
+           sorting_methods.forEach(sort_method  =>{
+            sort_method.addEventListener('click', (event) =>{
+                const selected_sort_method = sort_method.dataset.sort;
+                switch(selected_sort_method){
+                    case 'alpha_asc':
+                        sort_menu('alpha', 'asc')
+                        break;
+                    case 'alpha_desc':
+                        sort_menu('alpha', 'desc')
+                        break;
+                    case 'price_asc':
+                        sort_menu('price', 'asc')
+                        break;
+                    case 'price_desc':
+                        sort_menu('price', 'desc')
+                        break;
+                    case 'carbon_asc':
+                        sort_menu('carbon', 'asc')
+                        break;
+                    case 'carbon_desc':
+                        sort_menu('carbon', 'desc')
+                        break;
+                }
+            });
+           });
+
+
+           /* FUNCTIONS */
+
+           function sort_menu(sort_method, order_method){
+            //I want to retreive all the names of the cafe_menu_items here and sort them in alphabetical  order
+            const items_list = Array.from(document.querySelectorAll('#menu_list .menu_item'));
+            const sorted_items_list = items_list.sort((a, b) =>{
+                let a_val, b_val;
+
+                if (sort_method == 'alpha'){
+                    a_val = a.dataset.name.toLowerCase();
+                    b_val = b.dataset.name.toLowerCase();
+                }
+                else if (sort_method == 'price'){
+                    a_val = parseFloat(a.dataset.price);
+                    b_val = parseFloat(b.dataset.price);
+                }
+                else if (sort_method == 'carbon'){
+                    a_val = parseFloat(a.dataset.carbon_footprint);
+                    b_val = parseFloat(b.dataset.carbon_footprint);
+                }
+
+                if (order_method == 'asc'){
+                    if(typeof(a_val, b_val) == "number"){
+                        return a_val - b_val;
+                    }
+                    return a_val.localeCompare(b_val);
+                }
+                else if(order_method =='desc'){
+                    if(typeof(a_val, b_val) == "number"){
+                        return b_val - a_val;
+                    }
+                    return b_val.localeCompare(a_val);
+                }
+
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item)); 
+            }
+            function sort_menu_alphabetical(items_list){
+            const sorted_items_list = items_list.sort((a, b) => {
+                const a_name = a.dataset.name.toLowerCase();
+                const b_name = b.dataset.name.toLowerCase();
+                return a_name.localeCompare(b_name)
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item)); 
+           }
+
+           function sort_menu_price_asc(items_list){
+            const sorted_items_list = items_list.sort((a, b) => {
+                const a_price = parseFloat(a.dataset.price);
+                const b_price = parseFloat(b.dataset.price);
+                return a_price - b_price;
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item));
+           }
+
+           function sort_menu_price_desc(items_list){
+            const sorted_items_list = items_list.sort((a, b) => {
+                const a_price = parseFloat(a.dataset.price);
+                const b_price = parseFloat(b.dataset.price);
+                return b_price - a_price;
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item));
+           }
+           function sort_menu_carbon_asc(items_list){
+            const sorted_items_list = items_list.sort((a, b) => {
+                const a_carbon = parseFloat(a.dataset.carbon_footprint);
+                const b_carbon = parseFloat(b.dataset.carbon_footprint);
+                return a_carbon - b_carbon;
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item));
+           }
+
+           function sort_menu_carbon_desc(items_list){
+            const sorted_items_list = items_list.sort((a, b) => {
+                const a_carbon = parseFloat(a.dataset.carbon_footprint);
+                const b_carbon = parseFloat(b.dataset.carbon_footprint);
+                return b_carbon - a_carbon;
+            });
+            sorted_items_list.forEach(item => menu_list.appendChild(item));
+           }
+
         });
+
+
     </script>
 {% endblock %}
 
