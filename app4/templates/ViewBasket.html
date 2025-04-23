@@ -16,7 +16,12 @@
          <p id="total_price_container_{{ entry.item_id }}">Total cost: {{entry.total_price}}</p>
       </li>
       {% endfor %}
-      <button id="remove_all_items_btn">Remove all items</button>
+      {% if user_basket %}
+         <button id="remove_all_items_btn">Remove all items</button>
+      {% else %}
+         <h2>Your basket is empty</h2>
+      {% endif %}
+
    </ul>
 
 
