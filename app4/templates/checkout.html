@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block content %}
+   <h1> Checkout </h1>
+   <h3> Total Price {{ session.total_basket_price }} </h3>
+   <form method="POST" novalidate>
+      {{ payment_form.hidden_tag() }}
+    
+      <div class="mb-3">
+        {{ payment_form.credit_card_number.label(class="form-label") }}
+        {{ payment_form.credit_card_number(class="form-control" + (" is-invalid" if payment_form.credit_card_number.errors else "")) }}
+    
+        {% for error in payment_form.credit_card_number.errors %}
+          <div class="invalid-feedback">
+            <i class="bi bi-exclamation-circle-fill"></i> {{ error }}
+          </div>
+        {% endfor %}
+      </div>
+    
+      <div class="mt-3">
+        {{ payment_form.pay(class="btn btn-primary") }}
+      </div>
+    </form>
+    
+{% endblock %}
+
+
+<!--  <button id = "login_btn">Login</button>
+<button id = "guest_btn">Guest</button>
+<script>
+   document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('login_btn').addEventListener('click', async () => {
+         window.location.href = '/login'
+      });
+   
+   });
+</script> -->
+

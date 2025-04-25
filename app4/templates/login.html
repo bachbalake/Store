@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+
+{% block content %}
+   {% if login_or_create_form %}
+      <h1>Login or Create New Account</h1>
+      <div id = "login_or_create_form">
+         {{wtf.quick_form(login_or_create_form)}}
+      </div>
+   {% else %}
+      <h1>Login Page</h1>
+   {% endif %}
+{% endblock %}

@@ -13,11 +13,12 @@
             <span class="item_quantity" id = 'quantity_container_{{ entry.item_id }}'>{{ entry.item_quantity }}</span>
             <button class="increase_quantity" data-item_id="{{ entry.item_id }}">+</button>
         </p>
-         <p id="total_price_container_{{ entry.item_id }}">Total cost: {{entry.total_price}}</p>
+         <p id="total_price_container_{{ entry.item_id }}">Total cost: {{entry.item_total_price}}</p>
       </li>
       {% endfor %}
       {% if user_basket %}
          <button id="remove_all_items_btn">Remove all items</button>
+         <button id="go_to_checkout_btn">Purchase items</button>
       {% else %}
          <h2>Your basket is empty</h2>
       {% endif %}
@@ -77,6 +78,10 @@
             }
 
          });
+         document.getElementById('go_to_checkout_btn').addEventListener('click', () => {
+            window.location.href = '/checkout/start';
+         })
+
       });
    </script>
 {% endblock %}
