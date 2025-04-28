@@ -5,9 +5,10 @@ from wtforms.validators import NumberRange, DataRequired, Regexp, ValidationErro
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy 
 from sqlalchemy.ext.hybrid import hybrid_property
-from flask_wtf.csrf import CSRFProtect, generate_csrf
+from flask_wtf.csrf import CSRFProtect, generate_csrf, CSRFError
 import uuid
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -75,11 +76,14 @@ class ingredient_recipe_amount(db.Model):
     recipe = db.relationship('recipe', back_populates = 'ingredients')
     ingredient = db.relationship('ingredients', back_populates = 'ingredient_recipe_amounts')
 
+
+# One user multiple user sessions. Allow users to create multiple user sessions? Multiple baskets? Show history of purchases?
 class user_session(db.Model):
     __tablename__ = 'user_cookies_session'
     id = db.Column (db.Integer, primary_key = True)
     cookie = db.Column (db.String(100), unique = True, nullable = False)
     creation_time = db.Column (db.DateTime, default = datetime.utcnow)
+    user_id = db.Column (db.Integer, db.ForeignKey('user_information.id'), nullable = True)
 
     session_basket = db.relationship('basket', backref = 'session', lazy = True)
 
@@ -87,7 +91,26 @@ class user_session(db.Model):
     def total_basket_price(self):
         return round(sum(item.item_total_price for item in self.session_basket), 2)
 
+class user(db.Model):
+    __tablename__ = 'user_information'
+    id = db.Column (db.Integer, primary_key = True)
+    name = db.Column (db.String, nullable = False)
+    email = db.Column (db.String(256), unique = True, nullable = False)
+    username = db.Column (db.String(34), unique = True, nullable = False)
+    password_hash = db.Column ('password', db.String(128), nullable = False)
 
+    session = db.relationship('user_session', backref = 'user', lazy = True)
+
+    @hybrid_property
+    def password(self):
+        return self.password_hash
+    
+    @password.setter
+    def password(self, user_password):
+        self.password_hash = generate_password_hash(user_password)
+
+    def check_password(self, password_entry):
+        return check_password_hash(self.password_hash, password_entry)
 """
 class user(db.Model):
     __tablename__ = 'User Information'
@@ -148,7 +171,13 @@ class create_account_form(FlaskForm):
     submit = SubmitField('Create Account')
 
 
-
+class login_form(FlaskForm):
+    credentials = StringField('Enter your username or email', validators = [DataRequired()])
+    password = PasswordField('Enter your password', validators = [
+        DataRequired(), 
+        Length(min = 8, max = 16)
+    ])
+    submit = SubmitField('Login')
     
 
 def create_session(new_cookie):
@@ -162,6 +191,9 @@ def get_current_session():
     session = user_session.query.filter_by (cookie = user_cookie).first()
     return session
 
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    return redirect('/')
 
 @app.route('/')
 def galleryPage():
@@ -171,11 +203,15 @@ def galleryPage():
     user_cookie = request.cookies.get('user_cookie')
     if not user_cookie:
         new_cookie = str(uuid.uuid4())
+        current_session = create_session(new_cookie)
         cookie_website = make_response(render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token))
         cookie_website.set_cookie('user_cookie', new_cookie, max_age = 60 * 60 * 24 * 30)
-        current_session = create_session(new_cookie)
         return cookie_website
+    
     current_session = get_current_session()
+    if not current_session:
+        current_session = create_session(user_cookie)
+
     return render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token)
 
 
@@ -205,6 +241,9 @@ def singleProductPage(item):
 @app.route('/basket')
 def basketPage():
     session = get_current_session()
+    if session is None:
+        print('No session')
+        return redirect('/')
     user_basket = basket.query.filter_by(session_id = session.id).all()
     csrf_token = generate_csrf()
     return render_template('ViewBasket.html', user_basket = user_basket, csrf_token = csrf_token)
@@ -250,8 +289,8 @@ def clear_basket():
         print(f"Error clearing basket {e}")
         return jsonify({'success': False, "error": str(e)}), 500
 
-@app.route('/checkout/start', methods = ['GET', 'POST'])
-def checkout_start():
+@app.route('/checkout', methods = ['GET', 'POST'])
+def checkout():
     checkout_choice_form = checkout_form()
     if checkout_choice_form.validate_on_submit():
         if checkout_choice_form.login.data:
@@ -261,53 +300,87 @@ def checkout_start():
             user_basket = basket.query.filter_by(session_id = session.id).all()
             payment_form = credit_card_form()
 
-            if payment_form.validate_on_submit():
+            if request.method == 'POST' and payment_form.pay.data and payment_form.validate():
                 return redirect('/checkout/complete')
     
             return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session)
 
-    return render_template('start_checkout.html', choice_form = checkout_choice_form)
+    return render_template('checkout.html', choice_form = checkout_choice_form)
 
-@app.route('/checkout/guest', methods = ['GET', 'POST'])
-def checkout_guest():
-    session = get_current_session()
-    user_basket = basket.query.filter_by(session_id = session.id).all()
-    payment_form = credit_card_form()
-
-    if payment_form.validate_on_submit():
-       return redirect('/checkout/complete')
-    
-    return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session)
 
 @app.route('/login', methods = ['GET', 'POST'])
 def login():
     login_choice = login_or_create_form()
+    user_login_form = login_form()
 
     if login_choice.validate_on_submit():
         if login_choice.login.data:
-            return render_template('login.html')
+            return render_template('login.html',login_or_create_form = None, user_login_form = user_login_form)
         elif login_choice.create.data:
             return redirect ('/create_account')
+    if user_login_form.validate_on_submit():
+        user_account = user.query.filter_by(username=user_login_form.credentials.data).first()
+        if not user_account:
+            user_account = user.query.filter_by(email=user_login_form.credentials.data).first()
+            if not user_account:
+                user_login_form.credentials.errors.append('Invalid Credentials')
+                return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form)
+        if user_account.check_password(user_login_form.password.data):
+            print('Account found!')
+            return redirect('/')
+        user_login_form.password.errors.append('Incorrect Password')
+        return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form)
 
-    return render_template('login.html', login_or_create_form = login_choice)
+    return render_template('login.html', login_or_create_form = login_choice, user_login_form = None)
 
+
+#add delete account mechnaism 
 @app.route('/create_account', methods = ['POST', 'GET'])
 def create_account():
     create_form = create_account_form()
+    csrf_token = generate_csrf()
 
     if create_form.validate_on_submit():
-        return redirect ('/login')
-    
-    return render_template ('create_account.html', form = create_form)
+        error = False
+        if user.query.filter_by(username = create_form.username.data).first():
+            create_form.username.errors.append('Username already taken.')
+            error = True
+        if user.query.filter_by(email=create_form.email.data).first():
+            create_form.email.errors.append('Email already registered.')
+            error = True
+        if not error:
+            new_user = user(
+                name = create_form.name.data,
+                email = create_form.email.data,
+                username = create_form.username.data,
+                password = create_form.password.data  
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            return redirect('/login')    
+        
+    return render_template ('create_account.html', form = create_form, csrf_token = csrf_token, validation = False)
+
+
 
 @app.route('/checkout/complete')
 def checkout_complete():
     return render_template('checkout_complete.html')
+
+
+@app.route('/account')
+def accountTable():
+    table = user.query.all()
+    return render_template('show_table.html', user_accounts = table )
+
+
 if __name__ == '__main__':
     app.run(debug=True)
 
 # Clear up jsonify messages. Set success as False, return the error as e. Also add more try methods, add error handling
 # Reduce the redundant html pages? Use if statements to render templates depending on what is passed
+# Check the methods (see if they are being used or not)
+# Add more secure user handling? Check for any possible security breaches
 """
 Allows for calculation of total price in SQL
 @total_price.expression
