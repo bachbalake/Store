@@ -22,7 +22,18 @@
           <td>{{ entry.email}}</td>
           <td>{{ entry.username }}</td>
           <td>{{ entry.password }}</td>
+        </tr>
          {% endfor %}
+         {% if current_user %}
+            <tr>
+            <h4>Currnt User</h4>
+            <th scope="row">{{ current_user.id }}</th>
+            <td>{{ current_user.name }}</td>
+            <td>{{ current_user.email}}</td>
+            <td>{{ current_user.username }}</td>
+            <td>{{ current_user.password }}</td>
+            </tr>
+         {% endif %}
       </tbody>
     </table>
     

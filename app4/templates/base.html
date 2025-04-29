@@ -13,6 +13,11 @@
          <nav>
             <a href = "{{url_for('galleryPage')}}">Home</a>
             <a href = "{{url_for('basketPage')}}">Basket</a>
+            {% if not current_user %}
+               <a href = "{{url_for('login')}}">Login</a>
+            {% else %}
+               <a href = "{{url_for('logout')}}">Logout</a>
+            {% endif %}
             <a href = "{{url_for('accountTable')}}">Accounts</a>
          </nav>
          {%- endblock navbar %} 

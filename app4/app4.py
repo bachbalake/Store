@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, make_response, redirect
+from flask import Flask, render_template, request, jsonify, make_response, redirect, session
 from flask_wtf import FlaskForm
 from wtforms import IntegerField, SubmitField, StringField, EmailField, PasswordField
 from wtforms.validators import NumberRange, DataRequired, Regexp, ValidationError, Email, Length, EqualTo
@@ -99,7 +99,7 @@ class user(db.Model):
     username = db.Column (db.String(34), unique = True, nullable = False)
     password_hash = db.Column ('password', db.String(128), nullable = False)
 
-    session = db.relationship('user_session', backref = 'user', lazy = True)
+    session = db.relationship('user_session', backref = 'user', lazy = True, uselist = False)
 
     @hybrid_property
     def password(self):
@@ -111,18 +111,24 @@ class user(db.Model):
 
     def check_password(self, password_entry):
         return check_password_hash(self.password_hash, password_entry)
-"""
-class user(db.Model):
-    __tablename__ = 'User Information'
-    id = db.Column (db.Integer, primary_key = True)
-    name = db.Column (db.String(45), index = True, unique = True, nullable = False)
-    password = db.Column (db.String(24), unique = True, nullable = False) # Make it so the password is hidden?
-    basket_id = db.Column (db.Integer) # It is a foreign key, the parent key is a basket record. I want to create a new basket when a new user is created
-class user_list (db.Model):
-    __tablename__ = 'Users List'
-    user_id = db.Column (db.Integer) # This is a foreign key, its parent is id from user
-    purchase_amount = db.Column (db.Float) # Using the basket it calculates through the amount bought and price the total money spent by the user
-"""
+    
+class purchase_history(db.Model):
+    __tablename__ = 'user_purchase_history'
+    id = db.Column(db.Integer, primary_key = True)
+    user_id = db.Column (db.Integer, db.ForeignKey('user_information.id'), nullable = False)
+    session_id = db.Column (db.Integer, db.ForeignKey('user_cookies_session.id'), nullable = False)
+    purchase_time = db.Column(db.DateTime, default = datetime.utcnow)
+
+    session = db.relationship('user_session', backref = 'purchases', lazy = True)
+    user = db.relationship('user', backref = 'purchases', lazy = True)
+
+    @hybrid_property
+    def basket(self):
+        return self.session.session_basket
+    
+    @hybrid_property
+    def total_price(self):
+        return self.session.total_basket_price
 
 class Basket_form(FlaskForm):
     amount = IntegerField('Add the desired amount', validators = [DataRequired(), NumberRange(min = 1, max = 15)])
@@ -180,16 +186,25 @@ class login_form(FlaskForm):
     submit = SubmitField('Login')
     
 
-def create_session(new_cookie):
+def create_session():
+    new_cookie = str(uuid.uuid4())
     session = user_session(cookie = new_cookie)
     db.session.add(session)
     db.session.commit()
-    return session
+    return session, new_cookie
 
 def get_current_session():
     user_cookie = request.cookies.get('user_cookie')
     session = user_session.query.filter_by (cookie = user_cookie).first()
     return session
+
+def get_current_user():
+    session = get_current_session()
+    if session and session.user_id:
+        return user.query.filter_by(id = session.user_id).first()
+    return None
+
+
 
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
@@ -201,10 +216,11 @@ def galleryPage():
     cafe_recipes = recipe.query.all()
     csrf_token = generate_csrf()
     user_cookie = request.cookies.get('user_cookie')
+    current_user = get_current_user()
     if not user_cookie:
         new_cookie = str(uuid.uuid4())
         current_session = create_session(new_cookie)
-        cookie_website = make_response(render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token))
+        cookie_website = make_response(render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token, current_user = current_user))
         cookie_website.set_cookie('user_cookie', new_cookie, max_age = 60 * 60 * 24 * 30)
         return cookie_website
     
@@ -212,7 +228,7 @@ def galleryPage():
     if not current_session:
         current_session = create_session(user_cookie)
 
-    return render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token)
+    return render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token, current_user = current_user)
 
 
 @app.route('/product_page/<int:item>', methods = ['GET', 'POST'])
@@ -220,6 +236,8 @@ def singleProductPage(item):
     purchase_form = Basket_form()
     selected_item = open_cafe.query.get_or_404(item)
     current_session = get_current_session()
+    current_user = get_current_user()
+
     if purchase_form.validate_on_submit():
         print("Form validated! Processing basket...")
         quantity = purchase_form.amount.data
@@ -233,20 +251,141 @@ def singleProductPage(item):
 
         db.session.commit()
 
-        return render_template('PurchaseProduct.html', item=selected_item, quantity_added = quantity, basket_entry=item_entry) 
+        return render_template('PurchaseProduct.html', item=selected_item, quantity_added = quantity, basket_entry=item_entry, current_user = current_user) 
     else: 
-        return render_template('SingleProduct.html', cafe_item = selected_item, basket = purchase_form)
+        return render_template('SingleProduct.html', cafe_item = selected_item, basket = purchase_form, current_user = current_user)
     
 # @app.route('user/basket')
 @app.route('/basket')
 def basketPage():
     session = get_current_session()
+    current_user = get_current_user()
+    user_login = False
     if session is None:
         print('No session')
         return redirect('/')
     user_basket = basket.query.filter_by(session_id = session.id).all()
     csrf_token = generate_csrf()
-    return render_template('ViewBasket.html', user_basket = user_basket, csrf_token = csrf_token)
+    if current_user:
+        user_login = True
+    return render_template('ViewBasket.html', user_basket = user_basket, csrf_token = csrf_token, current_user = current_user, user_login = user_login)
+
+@app.route('/payment', methods = ['GET', 'POST'])
+def payment():
+    session = get_current_session()
+    user_basket = basket.query.filter_by(session_id = session.id).all()
+    payment_form = credit_card_form()
+    current_user = get_current_user()
+    if request.method == 'POST' and payment_form.pay.data and payment_form.validate():
+        return redirect('/checkout/complete')
+
+
+    return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session, current_user = current_user)
+
+
+@app.route('/checkout', methods = ['GET', 'POST'])
+def checkout():
+    checkout_choice_form = checkout_form()
+    current_user = get_current_user()
+
+    if checkout_choice_form.validate_on_submit():
+        if checkout_choice_form.login.data:
+            return redirect ('/login')
+        else:
+           return redirect('/payment')
+
+    return render_template('checkout.html', choice_form = checkout_choice_form, current_user = current_user)
+
+
+@app.route('/login', methods = ['GET', 'POST'])
+def login():
+    login_choice = login_or_create_form()
+    user_login_form = login_form()
+    current_user = get_current_user()
+
+    if login_choice.validate_on_submit():
+        if login_choice.login.data:
+            return render_template('login.html',login_or_create_form = None, user_login_form = user_login_form, current_user = current_user)
+        elif login_choice.create.data:
+            return redirect ('/create_account')
+    if user_login_form.validate_on_submit():
+        user_account = user.query.filter_by(username=user_login_form.credentials.data).first()
+        if not user_account:
+            user_account = user.query.filter_by(email=user_login_form.credentials.data).first()
+            if not user_account:
+                user_login_form.credentials.errors.append('Invalid Credentials')
+                return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form, current_user = current_user)
+        if user_account.check_password(user_login_form.password.data):
+            current_session = get_current_session()
+            session['guest_cookie'] = request.cookies.get('user_cookie')
+            if user_account.session:
+                current_session = user_account.session
+                new_cookie = user_account.session.cookie
+            else:
+                new_cookie = str(uuid.uuid4())
+                current_session = user_session(cookie = new_cookie, user_id = user_account.id)
+                db.session.add(current_session)
+                db.session.commit()
+            print('Account found!')
+            user_website = make_response(redirect('/'))
+            user_website.set_cookie('user_cookie', new_cookie, max_age = 60 * 60 * 24 * 30)
+            return user_website
+        user_login_form.password.errors.append('Incorrect Password')
+        return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form, current_user = current_user)
+
+    return render_template('login.html', login_or_create_form = login_choice, user_login_form = None, current_user = current_user)
+
+
+#add delete account mechnaism, save credit card mechanism
+@app.route('/create_account', methods = ['POST', 'GET'])
+def create_account():
+    create_form = create_account_form()
+    csrf_token = generate_csrf()
+    current_user = get_current_user()
+
+    if create_form.validate_on_submit():
+        error = False
+        if user.query.filter_by(username = create_form.username.data).first():
+            create_form.username.errors.append('Username already taken.')
+            error = True
+        if user.query.filter_by(email=create_form.email.data).first():
+            create_form.email.errors.append('Email already registered.')
+            error = True
+        if not error:
+            new_user = user(
+                name = create_form.name.data,
+                email = create_form.email.data,
+                username = create_form.username.data,
+                password = create_form.password.data  
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            return redirect('/login')    
+        
+    return render_template ('create_account.html', form = create_form, csrf_token = csrf_token, validation = False, current_user = current_user)
+
+#Optimize create_session so it returns new session and new cookie (reduce repetation)
+
+@app.route('/checkout/complete')
+def checkout_complete():
+    current_user = get_current_user()
+    current_session = get_current_session()
+    if current_user:
+        purchase_entry = purchase_history(user_id = current_session.user_id, session_id = current_session.id)
+        db.session.add(purchase_entry)
+
+    new_session, new_cookie = create_session()
+    current_session = new_session
+    user_website = make_response(render_template('checkout_complete.html', current_user = current_user))
+    user_website.set_cookie('user_cookie', new_cookie, max_age = 60*60*24*30)
+    return user_website
+
+
+@app.route('/account')
+def accountTable():
+    table = user.query.all()
+    current_user = get_current_user()
+    return render_template('show_table.html', user_accounts = table, current_user = current_user)
 
 @app.route('/add_to_basket', methods = ['POST'])
 def add_to_basket():
@@ -288,90 +427,25 @@ def clear_basket():
     except Exception as e:
         print(f"Error clearing basket {e}")
         return jsonify({'success': False, "error": str(e)}), 500
-
-@app.route('/checkout', methods = ['GET', 'POST'])
-def checkout():
-    checkout_choice_form = checkout_form()
-    if checkout_choice_form.validate_on_submit():
-        if checkout_choice_form.login.data:
-            return redirect ('/login')
-        else:
-            session = get_current_session()
-            user_basket = basket.query.filter_by(session_id = session.id).all()
-            payment_form = credit_card_form()
-
-            if request.method == 'POST' and payment_form.pay.data and payment_form.validate():
-                return redirect('/checkout/complete')
     
-            return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session)
+@app.route('/logout', methods = ['GET', 'POST'])
+def logout():
+    guest_cookie = session.get('guest_cookie')
+    session.clear()
+    guest_website = make_response(redirect('/'))
 
-    return render_template('checkout.html', choice_form = checkout_choice_form)
+    if guest_cookie:
+        guest_website.set_cookie('user_cookie', guest_cookie, max_age = 60*60*24*30)
+    else:
+        new_cookie = str(uuid.uuid4())
+        new_session, new = create_session(new_cookie)
+        db.session.add(new_session)
+        db.session.commit()
+        guest_website.set_cookie('user_cookie', new_cookie, max_age = 60*60*24*30)
+    return guest_website
 
+    
 
-@app.route('/login', methods = ['GET', 'POST'])
-def login():
-    login_choice = login_or_create_form()
-    user_login_form = login_form()
-
-    if login_choice.validate_on_submit():
-        if login_choice.login.data:
-            return render_template('login.html',login_or_create_form = None, user_login_form = user_login_form)
-        elif login_choice.create.data:
-            return redirect ('/create_account')
-    if user_login_form.validate_on_submit():
-        user_account = user.query.filter_by(username=user_login_form.credentials.data).first()
-        if not user_account:
-            user_account = user.query.filter_by(email=user_login_form.credentials.data).first()
-            if not user_account:
-                user_login_form.credentials.errors.append('Invalid Credentials')
-                return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form)
-        if user_account.check_password(user_login_form.password.data):
-            print('Account found!')
-            return redirect('/')
-        user_login_form.password.errors.append('Incorrect Password')
-        return render_template('login.html', login_or_create_form = None, user_login_form = user_login_form)
-
-    return render_template('login.html', login_or_create_form = login_choice, user_login_form = None)
-
-
-#add delete account mechnaism 
-@app.route('/create_account', methods = ['POST', 'GET'])
-def create_account():
-    create_form = create_account_form()
-    csrf_token = generate_csrf()
-
-    if create_form.validate_on_submit():
-        error = False
-        if user.query.filter_by(username = create_form.username.data).first():
-            create_form.username.errors.append('Username already taken.')
-            error = True
-        if user.query.filter_by(email=create_form.email.data).first():
-            create_form.email.errors.append('Email already registered.')
-            error = True
-        if not error:
-            new_user = user(
-                name = create_form.name.data,
-                email = create_form.email.data,
-                username = create_form.username.data,
-                password = create_form.password.data  
-            )
-            db.session.add(new_user)
-            db.session.commit()
-            return redirect('/login')    
-        
-    return render_template ('create_account.html', form = create_form, csrf_token = csrf_token, validation = False)
-
-
-
-@app.route('/checkout/complete')
-def checkout_complete():
-    return render_template('checkout_complete.html')
-
-
-@app.route('/account')
-def accountTable():
-    table = user.query.all()
-    return render_template('show_table.html', user_accounts = table )
 
 
 if __name__ == '__main__':
