@@ -81,7 +81,7 @@
          const user = {{user_login | tojson}};
          document.getElementById('go_to_checkout_btn').addEventListener('click', () => {
             if (user){
-               window.location.href = '/payment'
+               window.location.href = '/payment';
             }
             else{
                window.location.href = '/checkout';

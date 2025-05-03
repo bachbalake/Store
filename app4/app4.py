@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, make_response, redirect, session
+from flask import Flask, render_template, request, jsonify, make_response, redirect, session, url_for, flash
 from flask_wtf import FlaskForm
 from wtforms import IntegerField, SubmitField, StringField, EmailField, PasswordField
 from wtforms.validators import NumberRange, DataRequired, Regexp, ValidationError, Email, Length, EqualTo
@@ -9,6 +9,7 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf, CSRFError
 import uuid
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import login_required
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -35,7 +36,7 @@ class basket(db.Model):
     item_quantity = db.Column (db.Integer, nullable = False)
     session_id = db.Column(db.Integer, db.ForeignKey('user_cookies_session.id'))
     item = db.relationship('open_cafe', backref = 'baskets')
-
+    
     @hybrid_property
     def item_total_price(self):
         return round(self.item_quantity * self.item.price, 2)
@@ -98,7 +99,7 @@ class user(db.Model):
     email = db.Column (db.String(256), unique = True, nullable = False)
     username = db.Column (db.String(34), unique = True, nullable = False)
     password_hash = db.Column ('password', db.String(128), nullable = False)
-
+    # I want to store user's credit card information so user can use a previously saved card
     session = db.relationship('user_session', backref = 'user', lazy = True, uselist = False)
 
     @hybrid_property
@@ -118,7 +119,7 @@ class purchase_history(db.Model):
     user_id = db.Column (db.Integer, db.ForeignKey('user_information.id'), nullable = False)
     session_id = db.Column (db.Integer, db.ForeignKey('user_cookies_session.id'), nullable = False)
     purchase_time = db.Column(db.DateTime, default = datetime.utcnow)
-
+    total_price = db.Column (db.Float, nullable = False)
     session = db.relationship('user_session', backref = 'purchases', lazy = True)
     user = db.relationship('user', backref = 'purchases', lazy = True)
 
@@ -126,9 +127,24 @@ class purchase_history(db.Model):
     def basket(self):
         return self.session.session_basket
     
-    @hybrid_property
-    def total_price(self):
-        return self.session.total_basket_price
+class purchase_item(db.Model):
+    __tablename__ = 'purchased_items'
+    id = db.Column(db.Integer, primary_key = True)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('user_purchase_history.id'), nullable = False)
+    item_name = db.Column(db.String(100), nullable = False)
+    quantity = db.Column(db.Integer, nullable = False)
+    total_price = db.Column(db.Float, nullable = False)
+
+    purchase = db.relationship('purchase_history', backref='items', lazy=True)
+
+class credit_card(db.Model):
+    __tablename__ = 'user_credit_cards'
+    id = db.Column(db.Integer, primary_key = True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_information.id'), nullable = False)
+    card_last4 = db.Column(db.String(4), nullable = False)
+    card_token = db.Column(db.String(128), nullable = False) 
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Basket_form(FlaskForm):
     amount = IntegerField('Add the desired amount', validators = [DataRequired(), NumberRange(min = 1, max = 15)])
@@ -185,13 +201,44 @@ class login_form(FlaskForm):
     ])
     submit = SubmitField('Login')
     
+class create_new_password_form(FlaskForm):
+    old_password = PasswordField('Enter your old password', validators = [
+        DataRequired(), 
+        Length(min = 8, max = 16)
+    ])
+    new_password = PasswordField('Enter your new password', validators = [
+        DataRequired(), 
+        Length(min = 8, max = 16)
+    ])
+    confirm_password = PasswordField('Confim your new password', validators = [
+        DataRequired(), 
+        EqualTo('new_password', message = 'Passwords must match'), 
+    ])
+    submit = SubmitField('Create new password')
 
-def create_session():
-    new_cookie = str(uuid.uuid4())
-    session = user_session(cookie = new_cookie)
+
+
+def create_session(cookie = None, user_account = None):
+    if cookie is None:
+        cookie = str(uuid.uuid4())
+        new_cookie = True
+        
+    if user_account:
+        current_user = user_account
+    else:
+        current_user = get_current_user()
+
+    if  current_user:
+        session = user_session(cookie = cookie, user_id = current_user.id)
+    else:
+        session = user_session(cookie = cookie)
+    
     db.session.add(session)
     db.session.commit()
-    return session, new_cookie
+
+    if new_cookie:
+        return session, cookie
+    return session
 
 def get_current_session():
     user_cookie = request.cookies.get('user_cookie')
@@ -218,8 +265,7 @@ def galleryPage():
     user_cookie = request.cookies.get('user_cookie')
     current_user = get_current_user()
     if not user_cookie:
-        new_cookie = str(uuid.uuid4())
-        current_session = create_session(new_cookie)
+        current_session, new_cookie = create_session()
         cookie_website = make_response(render_template('index.html',cafe_menu = cafe_menu, cafe_recipes = cafe_recipes, csrf_token = csrf_token, current_user = current_user))
         cookie_website.set_cookie('user_cookie', new_cookie, max_age = 60 * 60 * 24 * 30)
         return cookie_website
@@ -276,11 +322,30 @@ def payment():
     user_basket = basket.query.filter_by(session_id = session.id).all()
     payment_form = credit_card_form()
     current_user = get_current_user()
-    if request.method == 'POST' and payment_form.pay.data and payment_form.validate():
-        return redirect('/checkout/complete')
+    saved_cards = credit_card.query.filter_by(user_id = current_user.id).all() if current_user else []
+    if request.method == 'POST':
+        selected_card_id = request.form.get('saved_card_id')
+        use_saved = selected_card_id and selected_card_id != 'new'
 
+        if use_saved:
+            card = credit_card.query.filter_by(id = selected_card_id, user_id = current_user.id).first()
+            if card:
+                print(f"Processing payment with saved card {card.card_last4}")
+                return redirect('/checkout/complete')
 
-    return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session, current_user = current_user)
+        elif payment_form.validate():
+            card_number = payment_form.credit_card_number.data
+            last4 = card_number[-4:]
+            token = "tok_" + str(uuid.uuid4())[:16]
+
+            if current_user and request.form.get('save_card'):
+                new_card = credit_card(user_id = current_user.id, card_last4=last4, card_token=token)
+                db.session.add(new_card)
+                db.session.commit()
+
+            return redirect('/checkout/complete')
+
+    return render_template('checkout.html', user_basket = user_basket, payment_form = payment_form, session = session, current_user = current_user, saved_cards = saved_cards)
 
 
 @app.route('/checkout', methods = ['GET', 'POST'])
@@ -322,8 +387,7 @@ def login():
                 current_session = user_account.session
                 new_cookie = user_account.session.cookie
             else:
-                new_cookie = str(uuid.uuid4())
-                current_session = user_session(cookie = new_cookie, user_id = user_account.id)
+                current_session, new_cookie = create_session(None, user_account)
                 db.session.add(current_session)
                 db.session.commit()
             print('Account found!')
@@ -364,15 +428,26 @@ def create_account():
         
     return render_template ('create_account.html', form = create_form, csrf_token = csrf_token, validation = False, current_user = current_user)
 
-#Optimize create_session so it returns new session and new cookie (reduce repetation)
-
+# Add item names to purchase history
 @app.route('/checkout/complete')
 def checkout_complete():
     current_user = get_current_user()
     current_session = get_current_session()
     if current_user:
-        purchase_entry = purchase_history(user_id = current_session.user_id, session_id = current_session.id)
+        purchase_entry = purchase_history(user_id = current_session.user_id, session_id = current_session.id, total_price = current_session.total_basket_price )
         db.session.add(purchase_entry)
+        db.session.flush()
+
+        for item in current_session.session_basket:
+            purchase_item_entry = purchase_item(
+                purchase_id = purchase_entry.id,
+                item_name = item.item.name,
+                quantity = item.item_quantity,
+                total_price = item.item_total_price
+            )
+            db.session.add(purchase_item_entry)
+
+        db.session.commit()
 
     new_session, new_cookie = create_session()
     current_session = new_session
@@ -381,7 +456,7 @@ def checkout_complete():
     return user_website
 
 
-@app.route('/account')
+@app.route('/account_info')
 def accountTable():
     table = user.query.all()
     current_user = get_current_user()
@@ -438,14 +513,60 @@ def logout():
         guest_website.set_cookie('user_cookie', guest_cookie, max_age = 60*60*24*30)
     else:
         new_cookie = str(uuid.uuid4())
-        new_session, new = create_session(new_cookie)
+        new_session, new_cookie= create_session()
         db.session.add(new_session)
         db.session.commit()
         guest_website.set_cookie('user_cookie', new_cookie, max_age = 60*60*24*30)
     return guest_website
 
-    
+@app.route('/account', methods = ['GET', 'POST'])
+def account_details():
+    current_user = get_current_user()
+    purchase_history_table = purchase_history.query.filter_by(user_id = current_user.id).all()
+    new_password_form = create_new_password_form()
+    csrf_token = generate_csrf()
 
+    if current_user:
+        if new_password_form.validate_on_submit():
+            print('Enter password')
+            if current_user.check_password(new_password_form.old_password.data):
+                print('password authenticated')
+                current_user.password = new_password_form.new_password.data
+                db.session.commit()
+                flash('Password changed successfully!', 'success')
+            else:
+                print('Invalid')
+                flash('Old password is incorrect.', 'danger')
+            return redirect(url_for('account_details'))   
+        return render_template('account_info.html', purchase_history_table = purchase_history_table, current_user = current_user, new_password_form = new_password_form, csrf_token = csrf_token)
+
+    
+    return redirect('/login')
+
+@app.route('/delete_account', methods = ['POST'])
+def delete_account():
+    current_user = get_current_user()
+
+    print(current_user)
+    print('Inside delete account')
+    try:
+        sessions = user_session.query.filter_by(user_id=current_user.id).all()
+        for each_session in sessions:
+            basket.query.filter_by(session_id=each_session.id).delete()
+            purchase_history.query.filter_by(session_id=each_session.id).delete()
+            db.session.delete(each_session)
+        db.session.delete(current_user)
+        db.session.commit()
+
+        new_session, new_cookie = create_session()
+
+        response = jsonify({'success': True})
+        response.set_cookie('user_cookie', new_cookie, max_age=60 * 60 * 24 * 30)
+        return response
+        return jsonify({'success' : True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, "error" : str(e)})
 
 
 if __name__ == '__main__':

@@ -8,28 +8,56 @@
    {% endif %}
 
    {% if payment_form %}
-   <h1> Checkout </h1>
-   <h3> Total Price {{ session.total_basket_price }} </h3>
    <form method="POST" novalidate>
-      {{ payment_form.hidden_tag() }}
-    
-      <div class="mb-3">
-        {{ payment_form.credit_card_number.label(class="form-label") }}
-        {{ payment_form.credit_card_number(class="form-control" + (" is-invalid" if payment_form.credit_card_number.errors else "")) }}
+    {{ payment_form.hidden_tag() }}
+  
+    {% if saved_cards %}
+      <h5>Select a saved card</h5>
+      <select id="saved_card_id" name="saved_card_id" class="form-select mb-3">
+        <option value="new">-- Use New Card --</option>
+        {% for card in saved_cards %}
+          <option value="{{ card.id }}">Card ending in {{ card.card_last4 }} ({{ card.card_brand }})</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+  
+    <div id="new_card_fields">
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="save_card" name="save_card">
+        <label class="form-check-label" for="save_card">Save this card for future use</label>
+      </div>
+      {{ wtf.quick_form(payment_form) }}
+    </div>
 
-        {% if request.method == 'POST' and payment_form.pay.data %}
-          {% for error in payment_form.credit_card_number.errors %}
-            <div class="invalid-feedback">
-              <i class="bi bi-exclamation-circle-fill"></i> {{ error }}
-            </div>
-          {% endfor %}
-        {% endif %}
-      </div>
-    
-      <div class="mt-3">
-        {{ payment_form.pay(class="btn btn-primary") }}
-      </div>
-    </form>
-   {% endif %}
-    
+    <div id="saved_card_pay_btn" class="mt-3" style="display: none;">
+      <button type="submit" class="btn btn-primary" name="pay_saved" value="1">Pay with Selected Saved Card</button>
+    </div>
+  </form>
+
+  {% endif %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const cardSelect = document.getElementById('saved_card_id');
+      const newCardFields = document.getElementById('new_card_fields');
+      const savedCardPayBtn = document.getElementById('saved_card_pay_btn');
+
+      function toggleFields() {
+        if (!cardSelect || cardSelect.value === 'new') {
+          newCardFields.style.display = 'block';
+          savedCardPayBtn.style.display = 'none';
+        } else {
+          newCardFields.style.display = 'none';
+          savedCardPayBtn.style.display = 'block';
+        }
+      }
+
+      if (cardSelect) {
+        cardSelect.addEventListener('change', toggleFields);
+        toggleFields();
+      }
+      savedCardPayBtn.addEventListener('click', async () => {
+        window.location.href = '/checkout/complete';
+      })
+    });
+  </script>
 {% endblock %}
