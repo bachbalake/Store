@@ -2,12 +2,19 @@ from app4 import app, db, open_cafe, recipe, ingredients, ingredient_recipe_amou
 
 
 cafe_menu = [
+    { "name": "A Cuppa Coffee", "price": 2, "description": "A nice steaming cup of espresso", "image" : "coffee_poster 1.jpg" },
     { "name": "Ca Phe Muoi", "price": 5.35, "description": "A salted caramel Vietnamese drink made with a combination of Vietnamese coffee, condensed milk and just a little bit of salt", "image" : "ca phe muoi.jpg"},
     { "name": "Matcha Tonic", "price": 4.20, "description": "A refreshing drink with fruity tones and earthly matcha","image" : "matcha tonic.jpg" },
     { "name": "Irish Coffee", "price": 7.50, "description": "An uplifting caffeinated alcoholic drink made of Irish whiskey, coffee and sweetners.", "image" : "irish coffee.jpg" },
     { "name": "Affogato", "price": 4.75, "description": "A sweet treat made by pouring a shot of espresso over a scoop of vanilla ice cream", "image" : "affogato.jpg" }
-]
+    ]
 recipes_data = [
+   {
+      "name": "A Cuppa Coffee", 
+      "ingredients" : [
+         {"name" : "Espresso", "amount" : 200}
+      ]
+   },
    {
       "name": "Ca Phe Muoi", 
       "ingredients" : [

@@ -1,41 +1,75 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="sort_menu">
-        <button class="btn btn-secondary dropdown-toggle" type="button" id="sort_menu_button" data-bs-toggle="dropdown" aria-expanded="false">
-            Sort Options
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-            <li><a class="dropdown_item" data-sort = "alpha_asc">Ascending Alphabetical</a></li>
-            <li><a class="dropdown_item" data-sort = "alpha_desc">Descending Alphabetical</a></li>
-            <li><a class="dropdown_item" data-sort = "price_asc">Ascending Price</a></li>
-            <li><a class="dropdown_item" data-sort = "price_desc">Descending Price</a></li>
-            <li><a class="dropdown_item" data-sort = "carbon_asc">Ascending Carbon Footprint</a></li>
-            <li><a class="dropdown_item" data-sort = "carbon_desc">Descending Carbon Footprint </a></li>
-        </ul>
+    <div id="main">
+        <div id="main-background-wrapper">
+            <img src="{{ url_for('static', filename='coffee_poster 1.jpg') }}"
+                alt="A Cuppa Coffee"
+                id="main-background-image"
+                class="cafe_menu_images"
+                data-image_item_id="1"
+                draggable="true">
+        </div>
+
+        <div id="writing">
+            <div class="text_column">
+                <div>Unique</div>
+                <div>Drinks</div>
+            </div>
+            <div class="text_column">
+                <div>At</div>
+                <div>Home</div>
+            </div>
+        </div>
+        </div>
+
     </div>
-    <h1>Cafe Extra</h1>
-    <ul id = "menu_list">
-        {% for item in cafe_menu %}
+    <div id="sort-header-container">
+        <h1 id="cafe-extra-heading">Order perfectly crafted coffee drinks from around the world</h1>
+        <div id="sort-container">
+            <button id="sort-button">Sort Options</button>
+            <ul id="sort-menu" class="dropdown-menu hidden">
+                <li><a class="dropdown-item" data-sort="alpha_asc">Ascending Alphabetical</a></li>
+                <li><a class="dropdown-item" data-sort="alpha_desc">Descending Alphabetical</a></li>
+                <li><a class="dropdown-item" data-sort="price_asc">Ascending Price</a></li>
+                <li><a class="dropdown-item" data-sort="price_desc">Descending Price</a></li>
+                <li><a class="dropdown-item" data-sort="carbon_asc">Ascending Carbon Footprint</a></li>
+                <li><a class="dropdown-item" data-sort="carbon_desc">Descending Carbon Footprint</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <ul id="menu_list">
+        {% for item in cafe_menu[1:] %}
         {% set recipe_for_item = (cafe_recipes | selectattr('item_id', 'equalto', item.id) | list).0 %}
-        <li class = "menu_item" data-name = "{{ item.name }}" data-price = "{{ item.price }}" data-carbon_footprint = "{{ recipe_for_item.total_carbon_footprint if recipe_for_item}}">
-                <a href = "{{url_for('singleProductPage', item = loop.index)}}">
-                    <h3>{{ item.name }} </h3>
+        <li class="menu_item" data-name="{{ item.name }}" data-price="{{ item.price }}" data-carbon_footprint="{{ recipe_for_item.total_carbon_footprint if recipe_for_item }}">
+            
+            <div class="menu_item_left">
+                <a href="{{ url_for('singleProductPage', item = loop.index + 1) }}">
+                    <h3>{{ item.name }}</h3>
                 </a>
+                <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}" class="cafe_menu_images" data-image_item_id="{{ item.id }}" draggable="true">
+            </div>
+    
+            <div class="menu_item_right">
                 <p>Price: {{ item.price }}</p>
-                <img src = "{{ url_for('static', filename = item.image) }}" alt = "{{ item.name }}" class = "cafe_menu_images" data-image_item_id = "{{ item.id }}" draggable="true"> 
                 {% if recipe_for_item %}
                     <p>Carbon Footprint: {{ recipe_for_item.total_carbon_footprint }}</p>
                 {% endif %}
-                <p id = "description_container"></p>
-            </li>
+                <div class="item_container"></div>
+            </div>     
+        </li>
         {% endfor %}
     </ul>
-    <div id = 'basket_drop_area' style = "border: 2px; background-color: bisque;" padding = 10px>
-        <h2>Basket</h2>
-    </div>
+    
+    <figure id="basket_drop_container">
+        <img src="{{ url_for('static', filename = 'cute mug.webp') }}" id="basket_drop_area">
+        <figcaption>Pour (drag) your coffee here!</figcaption>
+      </figure>
+      
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('main').scrollIntoView();
 
             /* BASKET DRAG AND DROP */
 
@@ -83,7 +117,7 @@
 
            /* SORTING */
            
-           const sorting_methods = document.querySelectorAll('.dropdown_item');
+           const sorting_methods = document.querySelectorAll('.dropdown-item');
 
            sorting_methods.forEach(sort_method  =>{
             sort_method.addEventListener('click', (event) =>{
@@ -173,8 +207,14 @@
                         description_container = document.createElement('div');
                         description_container.classList.add('item_description');
                         description_container.innerText = data.description;
+                        let itemContainer;
 
-                        img.parentElement.appendChild(description_container);
+                        // Determine where to append the description
+                        const menuItem = img.closest('#menu_list .menu_item');
+                        itemContainer = menuItem.querySelector('.item_container');
+                        if (itemContainer) {
+                            itemContainer.appendChild(description_container);
+                        }
                     }
                 }
                 catch(error){
@@ -197,9 +237,31 @@
                     }
                 });
             });
-        });
+            /* SORT MENU IMPLEMENTATION */
+            const button = document.getElementById('sort-button');
+            const menu = document.getElementById('sort-menu');
 
+            // Toggle menu
+            button.addEventListener('click', function (e) {
+                e.stopPropagation(); // Prevent click bubbling
+                menu.classList.toggle('hidden');
+            });
 
+            // Hide dropdown if clicking outside
+            document.addEventListener('click', function () {
+                menu.classList.add('hidden');
+            });
+
+            // Optional: handle menu item clicks
+            const items = document.querySelectorAll('.dropdown-item');
+            items.forEach(item => {
+                item.addEventListener('click', () => {
+                const sortData = item.dataset.sort;
+                console.log("Selected sort option:", sortData);
+                menu.classList.add('hidden');
+                });
+            });
+    });
     </script>
 {% endblock %}
 

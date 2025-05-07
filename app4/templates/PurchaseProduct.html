@@ -1,10 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-   <h1> {{ item.name }}</h1>
-   <h3>Items Added: </h3>
-   <p> {{ quantity_added }} </p>
-   <h3>Total Items: </h3>
-   <p> {{ basket_entry.item_quantity }} </p>
+    <div class="info-banner">
+        <h1 class="headers">{{ item.name }}</h1>
+        <div class="info-banner-details">
+            <div>
+                <h3>Items Added:</h3>
+                <p>{{ quantity_added }}</p>
+            </div>
+            <div>
+                <h3>Total Items in Basket:</h3>
+                <p>{{ basket_entry.item_quantity }}</p>
+            </div>
+        </div>
+    </div>
 {% endblock %}
-

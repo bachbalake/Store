@@ -4,37 +4,42 @@
 {% block content %}
 
    {% if choice_form %}
-      {{ wtf.quick_form(choice_form) }}
+    <div class="centered-form">
+      <h2 class = 'headers'>Select an option: </h2>
+      {{ wtf.quick_form(choice_form, form_type='inline') }}
+    </div>
    {% endif %}
 
    {% if payment_form %}
-   <form method="POST" novalidate>
-    {{ payment_form.hidden_tag() }}
-  
-    {% if saved_cards %}
-      <h5>Select a saved card</h5>
-      <select id="saved_card_id" name="saved_card_id" class="form-select mb-3">
-        <option value="new">-- Use New Card --</option>
-        {% for card in saved_cards %}
-          <option value="{{ card.id }}">Card ending in {{ card.card_last4 }} ({{ card.card_brand }})</option>
-        {% endfor %}
-      </select>
-    {% endif %}
-  
-    <div id="new_card_fields">
-      <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="save_card" name="save_card">
-        <label class="form-check-label" for="save_card">Save this card for future use</label>
-      </div>
-      {{ wtf.quick_form(payment_form) }}
-    </div>
-
-    <div id="saved_card_pay_btn" class="mt-3" style="display: none;">
-      <button type="submit" class="btn btn-primary" name="pay_saved" value="1">Pay with Selected Saved Card</button>
-    </div>
-  </form>
-
-  {% endif %}
+   <div class="payment-form-wrapper">
+     <form method="POST" novalidate id="centered-form-payment" class="p-4 shadow-lg rounded bg-white">
+       {{ payment_form.hidden_tag() }}
+ 
+       {% if saved_cards %}
+         <h5 class="mb-3">Select a saved card</h5>
+         <select id="saved_card_id" name="saved_card_id" class="form-select mb-4">
+           <option value="new">-- Use New Card --</option>
+           {% for card in saved_cards %}
+             <option value="{{ card.id }}">Card ending in {{ card.card_last4 }} ({{ card.card_brand }})</option>
+           {% endfor %}
+         </select>
+       {% endif %}
+ 
+       <div id="new_card_fields">
+         <div class="form-check mb-3">
+           <input class="form-check-input" type="checkbox" id="save_card" name="save_card">
+           <label class="form-check-label" for="save_card">Save this card for future use</label>
+         </div>
+         {{ wtf.quick_form(payment_form, form_type="horizontal", button_map={"submit": "primary"}) }}
+       </div>
+ 
+       <div id="saved_card_pay_btn" class="mt-4 text-center" style="display: none;">
+         <button type="submit" class="btn btn-success px-4 py-2" name="pay_saved" value="1">Pay with Selected Saved Card</button>
+       </div>
+     </form>
+   </div>
+ {% endif %}
+ 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const cardSelect = document.getElementById('saved_card_id');

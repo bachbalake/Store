@@ -456,11 +456,6 @@ def checkout_complete():
     return user_website
 
 
-@app.route('/account_info')
-def accountTable():
-    table = user.query.all()
-    current_user = get_current_user()
-    return render_template('show_table.html', user_accounts = table, current_user = current_user)
 
 @app.route('/add_to_basket', methods = ['POST'])
 def add_to_basket():
@@ -576,6 +571,7 @@ if __name__ == '__main__':
 # Reduce the redundant html pages? Use if statements to render templates depending on what is passed
 # Check the methods (see if they are being used or not)
 # Add more secure user handling? Check for any possible security breaches
+# Add just coffee into the database?
 """
 Allows for calculation of total price in SQL
 @total_price.expression
@@ -622,3 +618,7 @@ def total_price(cls):
    {{ wtf.quick_form(form) }}
 </div>
 {% endblock %}-->"""
+
+"""
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+"""
