@@ -84,16 +84,10 @@
 
             basket_drop.addEventListener('dragover', (event) => {
                 event.preventDefault();
-                //basket_drop.style.backgroundColor = '#eef';
             });
 
-            /*
-            basket_drop.addEventListener('dragleave', (event) => {
-                basket_drop.style.backgroundColor = '#eef';
-            });
-            */
+          
            basket_drop.addEventListener('drop', async () =>{
-            //basket_drop.style.backgroundColor = '';
             const dropped_item_id = event.dataTransfer.getData('text/plain');
             const response = await fetch('/add_to_basket', {
                 method: 'POST', 
@@ -129,7 +123,6 @@
            /* FUNCTIONS */
 
            function sort_menu(sorting_method, order_method){
-            //I want to retreive all the names of the cafe_menu_items here and sort them in alphabetical  order
             const items_list = Array.from(document.querySelectorAll('#menu_list .menu_item'));
             const sorted_items_list = items_list.sort((a, b) =>{
                 let a_val, b_val;
@@ -175,7 +168,6 @@
                 let active_image = null;
                 let fetch_controller = null;
                 img.addEventListener('mouseover', async () =>{
-                //let description_container = document.getElementById('description_container');
                 const item_id = img.dataset.image_item_id;
                 console.log("Hover over: ", item_id);
 
@@ -209,7 +201,7 @@
                         description_container.innerText = data.description;
                         let itemContainer;
 
-                        // Determine where to append the description
+                       
                         const menuItem = img.closest('#menu_list .menu_item');
                         itemContainer = menuItem.querySelector('.item_container');
                         if (itemContainer) {
@@ -225,7 +217,6 @@
                 });
 
                 img.addEventListener('mouseout', () => {
-                    //let description_container = document.getElementById('description_container');
                     if(description_container){
                         description_container.remove();
                         description_container = null;
@@ -241,18 +232,16 @@
             const button = document.getElementById('sort-button');
             const menu = document.getElementById('sort-menu');
 
-            // Toggle menu
+            
             button.addEventListener('click', function (e) {
-                e.stopPropagation(); // Prevent click bubbling
+                e.stopPropagation(); 
                 menu.classList.toggle('hidden');
             });
 
-            // Hide dropdown if clicking outside
             document.addEventListener('click', function () {
                 menu.classList.add('hidden');
             });
 
-            // Optional: handle menu item clicks
             const items = document.querySelectorAll('.dropdown-item');
             items.forEach(item => {
                 item.addEventListener('click', () => {
@@ -268,15 +257,3 @@
 
 
 
- <!-- Display the description of the image when hovered over 
-      <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const images = document.querySelectorAll('.cafe_menu_images');
-            images.forEach (img =>{
-                img.addEventListener('mouseover', () =>{
-                const item_name = img.dataset.name;
-                });
-            });
-        });
-    </script>
-     -->

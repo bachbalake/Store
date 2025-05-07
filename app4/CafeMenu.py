@@ -57,7 +57,7 @@ recipes_data = [
 ]
 
 #Carbon Footprint (g CO₂e per g/ml)
-# Convert to kg when required?
+
 
 ingredient_carbon_footprint = [
    {"name" : "Brew Coffee", "carbon_footprint" : 0.25},

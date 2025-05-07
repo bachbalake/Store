@@ -26,9 +26,7 @@ class open_cafe(db.Model):
     description = db.Column(db.String)
     image  = db.Column(db.String)
 
-#Maybe create a page that allows the user to buy the items and then displays all the pictures in a fun way to represent the items bought.It then resets the basket
-
-# Want to create a basket for each user where user can add items and amount. Add constraints to the amount they can add, if item already exists then just increment the value there 
+ 
 class basket(db.Model):
     __tablename__ = 'user_basket'
     id = db.Column(db.Integer, primary_key = True)
@@ -41,11 +39,6 @@ class basket(db.Model):
     def item_total_price(self):
         return round(self.item_quantity * self.item.price, 2)
     
-
-# Want to create a login page, or a sign up page
-# Each user has a unique id, name, password and basket_id
-# Options to view the user account at all times, reset password?, delete account, try emailing for code?
-
 
 class recipe (db.Model):
     __tablename__ = 'all_recipes'
@@ -78,7 +71,6 @@ class ingredient_recipe_amount(db.Model):
     ingredient = db.relationship('ingredients', back_populates = 'ingredient_recipe_amounts')
 
 
-# One user multiple user sessions. Allow users to create multiple user sessions? Multiple baskets? Show history of purchases?
 class user_session(db.Model):
     __tablename__ = 'user_cookies_session'
     id = db.Column (db.Integer, primary_key = True)
@@ -99,7 +91,6 @@ class user(db.Model):
     email = db.Column (db.String(256), unique = True, nullable = False)
     username = db.Column (db.String(34), unique = True, nullable = False)
     password_hash = db.Column ('password', db.String(128), nullable = False)
-    # I want to store user's credit card information so user can use a previously saved card
     session = db.relationship('user_session', backref = 'user', lazy = True, uselist = False)
 
     @hybrid_property
@@ -180,7 +171,6 @@ class create_account_form(FlaskForm):
         DataRequired(),
         Email('Please enter a valid email')
     ])
-    #Username and email should not exist in the database
     username = StringField('Enter a username', validators = [DataRequired()])
     password = PasswordField('Enter a password', validators = [
         DataRequired(),
@@ -301,7 +291,6 @@ def singleProductPage(item):
     else: 
         return render_template('SingleProduct.html', cafe_item = selected_item, basket = purchase_form, current_user = current_user)
     
-# @app.route('user/basket')
 @app.route('/basket')
 def basketPage():
     session = get_current_session()
@@ -400,7 +389,6 @@ def login():
     return render_template('login.html', login_or_create_form = login_choice, user_login_form = None, current_user = current_user)
 
 
-#add delete account mechnaism, save credit card mechanism
 @app.route('/create_account', methods = ['POST', 'GET'])
 def create_account():
     create_form = create_account_form()
@@ -428,7 +416,6 @@ def create_account():
         
     return render_template ('create_account.html', form = create_form, csrf_token = csrf_token, validation = False, current_user = current_user)
 
-# Add item names to purchase history
 @app.route('/checkout/complete')
 def checkout_complete():
     current_user = get_current_user()
@@ -489,7 +476,6 @@ def get_item_description():
 @app.route('/clear_basket', methods = ['POST'])
 def clear_basket():
     try: 
-        #basket.query.filter_by(user_id=current_user.id).delete()
         session = get_current_session()
         basket.query.filter_by(session_id = session.id).delete()
         db.session.commit()
@@ -566,59 +552,3 @@ def delete_account():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-# Clear up jsonify messages. Set success as False, return the error as e. Also add more try methods, add error handling
-# Reduce the redundant html pages? Use if statements to render templates depending on what is passed
-# Check the methods (see if they are being used or not)
-# Add more secure user handling? Check for any possible security breaches
-# Add just coffee into the database?
-"""
-Allows for calculation of total price in SQL
-@total_price.expression
-def total_price(cls):
-    return cls.item_quantity * open_cafe.price
-"""
-"""{% extends "base.html" %}
-<!DOCTYPE html>
-<body>
-   <h1> {{ item.name }}</h1>
-   <h3>Items Added: </h3>
-   <p> {{ basket_entry.item_quantity }} </p>
-</body>"""
-
-
-"""def get_or_create_session(current_cookie):
-    session = user_session.query.filter_by(cookie = current_cookie).first()
-    if not session:
-        session = user_session(cookie = current_cookie)
-        db.session.add(session)
-        db.session.commit()
-    return session"""
-
-
-#f0edb524-c226-44a9-a6ac-fb8cf306529e
-
-
-
-"""def validate(self, extra_validators = None):
-        if not super().validate():
-            return False
-        if not (self.login or self.create):
-            self.login.errors.append('Please select an option')
-            self.create.errors.append('Please select an option')
-            return False"""
-
-
-
-"""
-
-<!-- {% block content %}
-<h1>Create Account</h1>
-<div id = "create_account_form">
-   {{ wtf.quick_form(form) }}
-</div>
-{% endblock %}-->"""
-
-"""
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-"""
